@@ -6,31 +6,10 @@ const ICE2 = '#D9EDFB';
 const ORANGE = '#D9612A';
 const MUTED = 'rgba(18,40,60,0.65)';
 
-function parseSummary(text) {
-  const match = text.match(/<SUMMARY_JSON>([\s\S]*?)<\/SUMMARY_JSON>/);
-  if (!match) return null;
-  try {
-    const obj = JSON.parse(match[1].trim());
-    const completedArr = Array.isArray(obj.completed) ? obj.completed : [];
-    return {
-      completed: completedArr.join(', '),
-      nextNode: obj.next || '',
-      note: obj.note || '',
-    };
-  } catch (e) {
-    console.error('요약 JSON 파싱 실패:', e, match[1]);
-    return null;
-  }
-}
-
-function stripSummary(text) {
-  return text.replace(/<SUMMARY_JSON>[\s\S]*?<\/SUMMARY_JSON>/, '').trim();
-}
-
-function buildFramerUrl(completedText) {
+function buildFramerUrl(completedArr) {
   const base = 'https://apheliondevelop.framer.website/';
-  if (!completedText || completedText === '없음') return base;
-  return `${base}?completed=${encodeURIComponent(completedText)}`;
+  if (!Array.isArray(completedArr) || completedArr.length === 0) return base;
+  return `${base}?completed=${encodeURIComponent(completedArr.join(','))}`;
 }
 
 export default function OnboardingChat() {
@@ -69,12 +48,7 @@ export default function OnboardingChat() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '요청 실패');
 
-      const rawText = data.text || '';
-      const parsedSummary = parseSummary(rawText);
-      const displayText = stripSummary(rawText);
-
-      setMessages((prev) => [...prev, { role: 'assistant', content: displayText || rawText }]);
-      if (parsedSummary) setSummary(parsedSummary);
+      setMessages((prev) => [...prev, { role: 'assistant', content: data.text || '' }]);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -86,32 +60,31 @@ export default function OnboardingChat() {
     if (loading) return;
 
     if (summary) {
-      window.location.href = buildFramerUrl(summary.completed);
+      window.location.href = buildFramerUrl(summary.completedArr);
       return;
     }
 
     setError(null);
     setLoading(true);
-    const trigger = { role: 'user', content: '여기까지 할게요. 지금까지 얘기한 내용으로 요약해주세요.' };
-    const newMessages = [...messages, trigger];
-    setMessages(newMessages);
 
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ messages, finalize: true }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || '요청 실패');
 
-      const rawText = data.text || '';
-      const parsedSummary = parseSummary(rawText);
-      const completed = parsedSummary?.completed || '없음';
+      const parsed = JSON.parse(data.text);
+      const completedArr = Array.isArray(parsed.completed) ? parsed.completed : [];
 
-      window.location.href = buildFramerUrl(completed);
+      setMessages((prev) => [...prev, { role: 'assistant', content: parsed.reply || '' }]);
+      setSummary({ completedArr, nextNode: parsed.next || '', note: parsed.note || '' });
+
+      window.location.href = buildFramerUrl(completedArr);
     } catch (e) {
-      setError(e.message);
+      setError('요약 처리 중 오류: ' + e.message);
       setLoading(false);
     }
   }
@@ -244,7 +217,7 @@ export default function OnboardingChat() {
                 ✓ 완료 처리된 개념
               </div>
               <div style={{ fontSize: 14, fontWeight: 600, color: NAVY, marginBottom: 14 }}>
-                {summary.completed || '없음'}
+                {summary.completedArr.length > 0 ? summary.completedArr.join(', ') : '없음'}
               </div>
 
               <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: ORANGE, marginBottom: 6 }}>
