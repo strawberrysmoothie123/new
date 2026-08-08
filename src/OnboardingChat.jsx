@@ -11,8 +11,9 @@ function parseSummary(text) {
   if (!match) return null;
   const block = match[1];
   const get = (label) => {
-    const m = block.match(new RegExp(label + '\\s*:\\s*(.+)'));
-    return m ? m[1].trim() : '';
+    const pattern = new RegExp(label + '\\s*[*]{0,2}\\s*:\\s*[*]{0,2}\\s*(.+)');
+    const m = block.match(pattern);
+    return m ? m[1].replace(/\*+/g, '').trim() : '';
   };
   return {
     completed: get('완료 처리된 개념'),
@@ -76,6 +77,42 @@ export default function OnboardingChat() {
     } catch (e) {
       setError(e.message);
     } finally {
+      setLoading(false);
+    }
+  }
+
+  async function goToMindmap() {
+    if (loading) return;
+
+    // 이미 요약이 나와있으면 바로 이동
+    if (summary) {
+      window.location.href = buildFramerUrl(summary.completed);
+      return;
+    }
+
+    // 아직 요약이 없으면, 지금까지의 대화 내용으로 강제 요약 요청 후 즉시 이동
+    setError(null);
+    setLoading(true);
+    const trigger = { role: 'user', content: '여기까지 할게요. 지금까지 얘기한 내용으로 요약해주세요.' };
+    const newMessages = [...messages, trigger];
+    setMessages(newMessages);
+
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: newMessages }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || '요청 실패');
+
+      const rawText = data.text || '';
+      const parsedSummary = parseSummary(rawText);
+      const completed = parsedSummary?.completed || '없음';
+
+      window.location.href = buildFramerUrl(completed);
+    } catch (e) {
+      setError(e.message);
       setLoading(false);
     }
   }
@@ -229,9 +266,7 @@ export default function OnboardingChat() {
                   fontWeight: 600,
                   cursor: 'pointer',
                 }}
-                onClick={() => {
-                  window.location.href = buildFramerUrl(summary.completed);
-                }}
+                onClick={goToMindmap}
               >
                 내 지도에서 확인하기
               </button>
@@ -280,9 +315,8 @@ export default function OnboardingChat() {
         {/* 마인드맵으로 바로 넘어가기 */}
         <div style={{ padding: '0 16px 16px 16px' }}>
           <button
-            onClick={() => {
-              window.location.href = buildFramerUrl(summary?.completed);
-            }}
+            onClick={goToMindmap}
+            disabled={loading}
             style={{
               width: '100%',
               padding: '12px',
@@ -293,9 +327,10 @@ export default function OnboardingChat() {
               fontSize: 13,
               fontWeight: 600,
               cursor: 'pointer',
+              opacity: loading ? 0.6 : 1,
             }}
           >
-            준비 끝났으니 지금 바로 나만의 마인드맵으로
+            {loading ? '정리하는 중…' : '준비 끝났으니 지금 바로 나만의 마인드맵으로'}
           </button>
         </div>
       </div>
