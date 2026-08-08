@@ -7,23 +7,24 @@ const ORANGE = '#D9612A';
 const MUTED = 'rgba(18,40,60,0.65)';
 
 function parseSummary(text) {
-  const match = text.match(/\[SUMMARY\]([\s\S]*?)\[\/SUMMARY\]/);
+  const match = text.match(/<SUMMARY_JSON>([\s\S]*?)<\/SUMMARY_JSON>/);
   if (!match) return null;
-  const block = match[1];
-  const get = (label) => {
-    const pattern = new RegExp(label + '\\s*[*]{0,2}\\s*:\\s*[*]{0,2}\\s*(.+)');
-    const m = block.match(pattern);
-    return m ? m[1].replace(/\*+/g, '').trim() : '';
-  };
-  return {
-    completed: get('완료 처리된 개념'),
-    nextNode: get('이어서 시작할 지점'),
-    note: get('한 줄 메모'),
-  };
+  try {
+    const obj = JSON.parse(match[1].trim());
+    const completedArr = Array.isArray(obj.completed) ? obj.completed : [];
+    return {
+      completed: completedArr.join(', '),
+      nextNode: obj.next || '',
+      note: obj.note || '',
+    };
+  } catch (e) {
+    console.error('요약 JSON 파싱 실패:', e, match[1]);
+    return null;
+  }
 }
 
 function stripSummary(text) {
-  return text.replace(/\[SUMMARY\][\s\S]*?\[\/SUMMARY\]/, '').trim();
+  return text.replace(/<SUMMARY_JSON>[\s\S]*?<\/SUMMARY_JSON>/, '').trim();
 }
 
 function buildFramerUrl(completedText) {
@@ -84,13 +85,11 @@ export default function OnboardingChat() {
   async function goToMindmap() {
     if (loading) return;
 
-    // 이미 요약이 나와있으면 바로 이동
     if (summary) {
       window.location.href = buildFramerUrl(summary.completed);
       return;
     }
 
-    // 아직 요약이 없으면, 지금까지의 대화 내용으로 강제 요약 요청 후 즉시 이동
     setError(null);
     setLoading(true);
     const trigger = { role: 'user', content: '여기까지 할게요. 지금까지 얘기한 내용으로 요약해주세요.' };
