@@ -15,9 +15,9 @@ function parseSummary(text) {
     return m ? m[1].trim() : '';
   };
   return {
-    concept: get('추천 시작 개념'),
-    level: get('학습자 수준'),
-    reason: get('한 줄 추천 이유'),
+    completed: get('완료 처리된 개념'),
+    nextNode: get('이어서 시작할 지점'),
+    note: get('한 줄 메모'),
   };
 }
 
@@ -27,7 +27,11 @@ function stripSummary(text) {
 
 export default function OnboardingChat() {
   const [messages, setMessages] = useState([
-    { role: 'assistant', content: '안녕하세요! 아펠리온의 AI 학습 내비게이션이에요. 오늘은 어떤 걸 배워보고 싶으세요?' },
+    {
+      role: 'assistant',
+      content:
+        '아펠리온에 처음 오신 걸 환영합니다, 최준영님!\n\n아펠리온 마인드맵을 이용하시기 전에 먼저 준영님의 사전 지식 정보를 알고 싶어요!\n\n본인의 전공 또는 따로 교육 받으신 분야들이 있을까요?\n(꼭 지금 모든 걸 알려주시지 않아도 돼요! 나중에 언제든 업데이트해주시면 반영해드려요)',
+    },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -92,17 +96,16 @@ export default function OnboardingChat() {
       <div
         style={{
           width: '100%',
-          maxWidth: 480,
-          background: 'rgba(255,255,255,0.7)',
+          maxWidth: 560,
+          background: 'rgba(255,255,255,0.85)',
           backdropFilter: 'blur(16px)',
-          borderRadius: 28,
-          border: `1px solid rgba(18,40,60,0.1)`,
+          borderRadius: 12,
+          border: `1px solid rgba(18,40,60,0.12)`,
           boxShadow: '0 20px 60px -20px rgba(18,40,60,0.25)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          height: '85vh',
-          maxHeight: 700,
+          height: 600,
         }}
       >
         {/* header */}
@@ -119,7 +122,7 @@ export default function OnboardingChat() {
             style={{
               width: 32,
               height: 32,
-              borderRadius: '50%',
+              borderRadius: 8,
               background: NAVY,
               display: 'flex',
               alignItems: 'center',
@@ -132,8 +135,8 @@ export default function OnboardingChat() {
             AI
           </div>
           <div>
-            <div style={{ fontWeight: 600, color: NAVY, fontSize: 14 }}>AI 학습 내비게이션</div>
-            <div style={{ fontSize: 11, color: MUTED }}>아펠리온 · 사전 지식 파악</div>
+            <div style={{ fontWeight: 600, color: NAVY, fontSize: 14 }}>환영해요, 아펠리온이에요</div>
+            <div style={{ fontSize: 11, color: MUTED }}>가입 완료 · 이미 아는 개념을 미리 체크할게요</div>
           </div>
         </div>
 
@@ -190,23 +193,29 @@ export default function OnboardingChat() {
                 marginTop: 8,
                 background: 'white',
                 border: `1px solid rgba(18,40,60,0.1)`,
-                borderRadius: 16,
+                borderRadius: 12,
                 padding: 16,
                 boxShadow: '0 4px 20px -8px rgba(18,40,60,0.2)',
               }}
             >
+              <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: '#2E8B57', marginBottom: 6 }}>
+                ✓ 완료 처리된 개념
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 600, color: NAVY, marginBottom: 14 }}>
+                {summary.completed || '없음'}
+              </div>
+
               <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: 1, color: ORANGE, marginBottom: 6 }}>
-                추천 학습 목표
+                이어서 시작할 지점
               </div>
-              <div style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 4 }}>{summary.concept}</div>
-              <div style={{ fontSize: 12, color: MUTED, marginBottom: 10 }}>
-                수준: {summary.level} · {summary.reason}
-              </div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: NAVY, marginBottom: 4 }}>{summary.nextNode}</div>
+              <div style={{ fontSize: 12, color: MUTED, marginBottom: 14 }}>{summary.note}</div>
+
               <button
                 style={{
                   width: '100%',
                   padding: '11px',
-                  borderRadius: 999,
+                  borderRadius: 8,
                   border: 'none',
                   background: NAVY,
                   color: 'white',
@@ -214,9 +223,9 @@ export default function OnboardingChat() {
                   fontWeight: 600,
                   cursor: 'pointer',
                 }}
-                onClick={() => alert('실제 제품에서는 여기서 학습 경로가 시작됩니다.')}
+                onClick={() => alert('실제 제품에서는 여기서 지도로 이동하며, 해당 노드들이 완료 표시됩니다.')}
               >
-                경로 적용하기
+                내 지도에서 확인하기
               </button>
             </div>
           )}
@@ -233,7 +242,7 @@ export default function OnboardingChat() {
             style={{
               flex: 1,
               border: `1px solid rgba(18,40,60,0.15)`,
-              borderRadius: 999,
+              borderRadius: 8,
               padding: '10px 16px',
               fontSize: 13.5,
               outline: 'none',
@@ -246,7 +255,7 @@ export default function OnboardingChat() {
             style={{
               width: 40,
               height: 40,
-              borderRadius: '50%',
+              borderRadius: 8,
               border: 'none',
               background: NAVY,
               color: 'white',
