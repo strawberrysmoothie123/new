@@ -25,6 +25,12 @@ function stripSummary(text) {
   return text.replace(/\[SUMMARY\][\s\S]*?\[\/SUMMARY\]/, '').trim();
 }
 
+function buildFramerUrl(completedText) {
+  const base = 'https://apheliondevelop.framer.website/';
+  if (!completedText || completedText === '없음') return base;
+  return `${base}?completed=${encodeURIComponent(completedText)}`;
+}
+
 export default function OnboardingChat() {
   const [messages, setMessages] = useState([
     {
@@ -224,7 +230,7 @@ export default function OnboardingChat() {
                   cursor: 'pointer',
                 }}
                 onClick={() => {
-                  window.location.href = 'https://aphelion12.framer.website/';
+                  window.location.href = buildFramerUrl(summary.completed);
                 }}
               >
                 내 지도에서 확인하기
@@ -275,7 +281,7 @@ export default function OnboardingChat() {
         <div style={{ padding: '0 16px 16px 16px' }}>
           <button
             onClick={() => {
-              window.location.href = 'https://aphelion12.framer.website/';
+              window.location.href = buildFramerUrl(summary?.completed);
             }}
             style={{
               width: '100%',
