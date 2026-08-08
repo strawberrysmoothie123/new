@@ -1,5 +1,5 @@
 // api/chat.js
-// Vercel Serverless Function — Claude API를 서버 쪽에서 안전하게 호출합니다.
+// Vercel Serverless Function — Google Gemini API를 서버 쪽에서 안전하게 호출합니다.
 // API 키는 여기서만 쓰이고, 브라우저(프론트엔드)에는 절대 노출되지 않습니다.
 
 export default async function handler(req, res) {
@@ -16,9 +16,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'POST 요청만 허용됩니다.' });
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: '서버에 ANTHROPIC_API_KEY 환경변수가 설정되지 않았습니다.' });
+    return res.status(500).json({ error: '서버에 GEMINI_API_KEY 환경변수가 설정되지 않았습니다.' });
   }
 
   const { messages } = req.body || {};
@@ -26,7 +26,6 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'messages 배열이 필요합니다.' });
   }
 
-  // 아펠리온 "사전 지식 파악" 온보딩 챗봇의 시스템 프롬프트
   const SYSTEM_PROMPT = `당신은 아펠리온(Aphelion)의 AI 학습 내비게이션입니다.
 새로 가입한 학습자와 짧게 대화하며 아래 정보를 자연스럽게 파악하세요:
 1. 어떤 분야/과목을 배우고 싶은지
@@ -47,29 +46,35 @@ export default async function handler(req, res) {
 
 보통 3~4번의 대화 턴 안에 요약까지 도달하도록 진행하세요.`;
 
+  const contents = messages.map((m) => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }));
+
+  const MODEL = 'gemini-3.5-flash';
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
+        'x-goog-api-key': apiKey,
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-5',
-        max_tokens: 400,
-        system: SYSTEM_PROMPT,
-        messages: messages, // [{role: 'user'|'assistant', content: '...'}, ...]
+        system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+        contents: contents,
+        generationConfig: { maxOutputTokens: 400 },
       }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      return res.status(response.status).json({ error: `Claude API 오류: ${errText}` });
+      return res.status(response.status).json({ error: `Gemini API 오류: ${errText}` });
     }
 
     const data = await response.json();
-    const text = data.content?.map((b) => b.text || '').join('') || '';
+    const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
 
     return res.status(200).json({ text });
   } catch (err) {
