@@ -128,16 +128,17 @@ export default async function handler(req, res) {
       };
     });
 
-    // 2) Gemini로 키워드 추출 (실패해도 논문 데이터는 그대로 반환)
+    // 2) Gemini로 키워드 추출 (실패해도 논문 데이터는 그대로 반환하되, 실패 이유는 알려줌)
     let keywordMap = new Map();
+    let keywordError = null;
     try {
       const kw = await extractKeywords(geminiApiKey, rawPapers);
       (kw.paperKeywords || []).forEach((pk) => {
         keywordMap.set(pk.index, Array.isArray(pk.keywords) ? pk.keywords : []);
       });
     } catch (err) {
-      // 키워드 추출만 실패한 경우, 논문 목록은 그대로 내려주고 keywords만 비워둠
       keywordMap = new Map();
+      keywordError = err.message || '키워드 추출 중 알 수 없는 오류';
     }
 
     const papers = rawPapers.map((p) => ({
@@ -153,7 +154,7 @@ export default async function handler(req, res) {
       ],
     }));
 
-    return res.status(200).json({ papers });
+    return res.status(200).json({ papers, keywordError });
   } catch (err) {
     return res.status(500).json({ error: err.message || '알 수 없는 오류' });
   }
