@@ -15,7 +15,7 @@ function parsePublicationSummary(summary) {
 }
 
 async function extractKeywords(geminiApiKey, rawPapers) {
-  const MODEL = 'gemini-2.5-flash';
+  const MODEL = 'gemini-3.6-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
   const systemPrompt = `당신은 학술 논문 분류 도우미입니다. 아래 논문 목록(제목·초록)을 보고:
