@@ -56,6 +56,7 @@ export default async function handler(req, res) {
   const MODEL = 'gemini-3.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
+  // finalize=true: 대화를 마무리하고, 100% 유효한 JSON만 강제로 받아옴 (Gemini Structured Output)
   const requestBody = finalize
     ? {
         system_instruction: {
@@ -72,7 +73,7 @@ export default async function handler(req, res) {
         },
         contents,
         generationConfig: {
-          maxOutputTokens: 400,
+          maxOutputTokens: 1024,
           responseMimeType: 'application/json',
           responseSchema: {
             type: 'OBJECT',
