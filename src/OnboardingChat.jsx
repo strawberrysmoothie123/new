@@ -223,7 +223,9 @@ export default function OnboardingChat() {
                   fontWeight: 600,
                   cursor: 'pointer',
                 }}
-                onClick={() => alert('실제 제품에서는 여기서 지도로 이동하며, 해당 노드들이 완료 표시됩니다.')}
+                onClick={() => {
+                  window.location.href = 'https://aphelion12.framer.website/';
+                }}
               >
                 내 지도에서 확인하기
               </button>
@@ -266,6 +268,28 @@ export default function OnboardingChat() {
             }}
           >
             →
+          </button>
+        </div>
+
+        {/* 마인드맵으로 바로 넘어가기 */}
+        <div style={{ padding: '0 16px 16px 16px' }}>
+          <button
+            onClick={() => {
+              window.location.href = 'https://aphelion12.framer.website/';
+            }}
+            style={{
+              width: '100%',
+              padding: '12px',
+              borderRadius: 8,
+              border: `1px solid ${NAVY}`,
+              background: 'transparent',
+              color: NAVY,
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            준비 끝났으니 지금 바로 나만의 마인드맵으로
           </button>
         </div>
       </div>
