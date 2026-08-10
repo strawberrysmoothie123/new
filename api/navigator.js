@@ -55,7 +55,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'POST 요청만 허용됩니다.' });
   }
 
-  const apiKey = process.env.NVIDIA_API_KEY;
+  const apiKey = process.env.NVDIA_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: '서버에 NVIDIA_API_KEY 환경변수가 설정되지 않았습니다.' });
   }
