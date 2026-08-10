@@ -1,7 +1,7 @@
 // api/papers.js
 // Vercel Serverless Function — SerpAPI(Google Scholar)로 논문 10개를 가져오고,
-// Gemini로 그 논문들의 공통 키워드를 뽑아 태깅해서 돌려줍니다.
-// SERPAPI_KEY, GEMINI_API_KEY 둘 다 서버 쪽 환경변수로만 쓰이고, 브라우저에는 노출되지 않습니다.
+// NVIDIA Build(NIM API)로 그 논문들의 공통 키워드를 뽑아 태깅해서 돌려줍니다.
+// SERPAPI_KEY, NVIDIA_API_KEY 둘 다 서버 쪽 환경변수로만 쓰이고, 브라우저에는 노출되지 않습니다.
 
 function parsePublicationSummary(summary) {
   // 예: "D Acemoglu, A Makhdoumi… - American Economic Journal…, 2022 - pubs.aeaweb.org"
@@ -14,60 +14,57 @@ function parsePublicationSummary(summary) {
   return { authorsPart, journal, year };
 }
 
-async function extractKeywords(geminiApiKey, rawPapers) {
-  const MODEL = 'gemini-3.6-flash';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+function extractJsonObject(text) {
+  // 모델이 ```json ... ``` 코드블록으로 감싸서 답하는 경우까지 방어적으로 처리
+  const cleaned = text.replace(/```json|```/g, '').trim();
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error('JSON 형식을 찾을 수 없습니다.');
+  return JSON.parse(cleaned.slice(start, end + 1));
+}
 
-  const systemPrompt = `당신은 학술 논문 분류 도우미입니다. 아래 논문 목록(제목·초록)을 보고:
+async function extractKeywords(nvidiaApiKey, rawPapers) {
+  const MODEL = 'meta/llama-3.1-70b-instruct';
+  const url = 'https://integrate.api.nvidia.com/v1/chat/completions';
+
+  const systemPrompt = `당신은 학술 논문 분류 도우미입니다. 반드시 한국어로만 답하세요. 아래 논문 목록(제목·초록)을 보고:
 1. 이 논문들 전체를 관통하는 핵심 연구 키워드를 한국어로 5개 뽑으세요 (2~4단어의 짧은 학술 용어).
 2. 각 논문마다, 위 5개 키워드 중 그 논문에 실제로 해당하는 것만 골라 태깅하세요 (없으면 빈 배열).
-목록에 없는 키워드를 새로 만들지 말고, 반드시 topKeywords 안에서만 골라 태깅하세요.`;
+목록에 없는 키워드를 새로 만들지 말고, 반드시 topKeywords 안에서만 골라 태깅하세요.
+
+반드시 아래 형식의 순수 JSON 객체 하나만 출력하세요. 다른 설명이나 코드블록 없이:
+{"topKeywords": ["키워드1", "키워드2", "키워드3", "키워드4", "키워드5"], "paperKeywords": [{"index": 0, "keywords": ["키워드1"]}]}`;
 
   const inputText = JSON.stringify(
     rawPapers.map((p) => ({ index: p.index, title: p.title, snippet: p.snippet }))
   );
 
-  const body = {
-    system_instruction: { parts: [{ text: systemPrompt }] },
-    contents: [{ role: 'user', parts: [{ text: inputText }] }],
-    generationConfig: {
-      maxOutputTokens: 1500,
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: 'OBJECT',
-        properties: {
-          topKeywords: { type: 'ARRAY', items: { type: 'STRING' } },
-          paperKeywords: {
-            type: 'ARRAY',
-            items: {
-              type: 'OBJECT',
-              properties: {
-                index: { type: 'INTEGER' },
-                keywords: { type: 'ARRAY', items: { type: 'STRING' } },
-              },
-              required: ['index', 'keywords'],
-            },
-          },
-        },
-        required: ['topKeywords', 'paperKeywords'],
-      },
-    },
-  };
-
   const response = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': geminiApiKey },
-    body: JSON.stringify(body),
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${nvidiaApiKey}`,
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: inputText },
+      ],
+      max_tokens: 1200,
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+    }),
   });
 
   if (!response.ok) {
     const errText = await response.text();
-    throw new Error(`Gemini 키워드 추출 오류: ${errText}`);
+    throw new Error(`NVIDIA 키워드 추출 오류: ${errText}`);
   }
 
   const data = await response.json();
-  const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '{}';
-  return JSON.parse(text);
+  const text = data.choices?.[0]?.message?.content || '{}';
+  return extractJsonObject(text);
 }
 
 export default async function handler(req, res) {
@@ -83,12 +80,12 @@ export default async function handler(req, res) {
   }
 
   const serpApiKey = process.env.SERPAPI_KEY;
-  const geminiApiKey = process.env.GEMINI_API_KEY;
+  const nvidiaApiKey = process.env.NVIDIA_API_KEY;
   if (!serpApiKey) {
     return res.status(500).json({ error: '서버에 SERPAPI_KEY 환경변수가 설정되지 않았습니다.' });
   }
-  if (!geminiApiKey) {
-    return res.status(500).json({ error: '서버에 GEMINI_API_KEY 환경변수가 설정되지 않았습니다.' });
+  if (!nvidiaApiKey) {
+    return res.status(500).json({ error: '서버에 NVIDIA_API_KEY 환경변수가 설정되지 않았습니다.' });
   }
 
   const { query } = req.body || {};
@@ -128,11 +125,11 @@ export default async function handler(req, res) {
       };
     });
 
-    // 2) Gemini로 키워드 추출 (실패해도 논문 데이터는 그대로 반환하되, 실패 이유는 알려줌)
+    // 2) NVIDIA(Llama)로 키워드 추출 (실패해도 논문 데이터는 그대로 반환하되, 실패 이유는 알려줌)
     let keywordMap = new Map();
     let keywordError = null;
     try {
-      const kw = await extractKeywords(geminiApiKey, rawPapers);
+      const kw = await extractKeywords(nvidiaApiKey, rawPapers);
       (kw.paperKeywords || []).forEach((pk) => {
         keywordMap.set(pk.index, Array.isArray(pk.keywords) ? pk.keywords : []);
       });
