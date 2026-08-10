@@ -80,12 +80,12 @@ export default async function handler(req, res) {
   }
 
   const serpApiKey = process.env.SERPAPI_KEY;
-  const nvidiaApiKey = process.env.NVIDIA_API_KEY;
+  const nvidiaApiKey = process.env.NVDIA_KEY;
   if (!serpApiKey) {
     return res.status(500).json({ error: '서버에 SERPAPI_KEY 환경변수가 설정되지 않았습니다.' });
   }
   if (!nvidiaApiKey) {
-    return res.status(500).json({ error: '서버에 NVIDIA_API_KEY 환경변수가 설정되지 않았습니다.' });
+    return res.status(500).json({ error: '서버에 NVDIA_KEY 환경변수가 설정되지 않았습니다.' });
   }
 
   const { query } = req.body || {};
