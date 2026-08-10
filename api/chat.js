@@ -1,6 +1,6 @@
 // api/chat.js
 // Vercel Serverless Function — Google Gemini API를 서버 쪽에서 안전하게 호출합니다.
-// API 키는 여기서만 쓰이고, 브라우저(프론트엔드)에는 절대 노출되지 않습니다.
+// (온보딩 사전지식 파악 챗봇 전용 — 학습 네비게이션은 api/navigator.js로 분리됨)
 
 const KNOWN_NODES = [
   "법경제학", "정보경제학", "미시경제학", "거시금융론",
@@ -53,10 +53,9 @@ export default async function handler(req, res) {
     parts: [{ text: m.content }],
   }));
 
-  const MODEL = 'gemini-3.5-flash';
+  const MODEL = 'gemini-3.6-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
-  // finalize=true: 대화를 마무리하고, 100% 유효한 JSON만 강제로 받아옴 (Gemini Structured Output)
   const requestBody = finalize
     ? {
         system_instruction: {
@@ -73,7 +72,7 @@ export default async function handler(req, res) {
         },
         contents,
         generationConfig: {
-          maxOutputTokens: 1024,
+          maxOutputTokens: 2048,
           responseMimeType: 'application/json',
           responseSchema: {
             type: 'OBJECT',
